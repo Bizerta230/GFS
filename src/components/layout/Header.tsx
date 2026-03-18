@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { LanguageSwitcher } from "./LanguageSwitcher";
 
 const navItems = [
   {
@@ -56,9 +57,7 @@ export function Header() {
         </nav>
 
         <div className="hidden items-center gap-4 md:flex">
-          <button className="rounded-full border border-slate-600 px-3 py-1 text-xs font-medium text-slate-200 hover:border-secondary hover:text-secondary">
-            EN
-          </button>
+          <LanguageSwitcher />
           <Link
             href="/pilot"
             className="rounded-full bg-secondary px-4 py-2 text-xs font-semibold text-slate-950 shadow-sm transition hover:bg-secondary/90"
