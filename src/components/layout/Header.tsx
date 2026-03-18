@@ -1,34 +1,37 @@
 import Link from "next/link";
+import { useTranslations } from "next-intl";
 import { LanguageSwitcher } from "./LanguageSwitcher";
 
-const navItems = [
-  {
-    label: "Technology",
-    href: "/technology/how-it-works",
-  },
-  {
-    label: "Solutions",
-    href: "/solutions/refinery",
-  },
-  {
-    label: "Calculator",
-    href: "/calculator",
-  },
-  {
-    label: "Resources",
-    href: "/resources/articles",
-  },
-  {
-    label: "About",
-    href: "/about/team",
-  },
-  {
-    label: "Contact",
-    href: "/contact",
-  },
-];
-
 export function Header() {
+  const t = useTranslations();
+
+  const navItems = [
+    {
+      label: t("nav.technology"),
+      href: "/technology/how-it-works",
+    },
+    {
+      label: t("nav.solutions"),
+      href: "/solutions/refinery",
+    },
+    {
+      label: t("nav.calculator"),
+      href: "/calculator",
+    },
+    {
+      label: t("nav.resources"),
+      href: "/resources/articles",
+    },
+    {
+      label: t("nav.about"),
+      href: "/about/team",
+    },
+    {
+      label: t("nav.contact"),
+      href: "/contact",
+    },
+  ];
+
   return (
     <header className="border-b border-white/10 bg-slate-950/80 text-white backdrop-blur">
       <div className="mx-auto flex max-w-6xl items-center justify-between px-4 py-4 md:px-6">

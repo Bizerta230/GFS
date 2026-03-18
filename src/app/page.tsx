@@ -1,31 +1,33 @@
+import { useTranslations } from "next-intl";
+
 export default function Home() {
+  const t = useTranslations();
+
   return (
     <div className="space-y-16">
       <section className="grid gap-10 md:grid-cols-[minmax(0,1.4fr)_minmax(0,1fr)] md:items-center">
         <div className="space-y-6">
           <p className="text-xs font-semibold uppercase tracking-[0.2em] text-secondary">
-            GFS EPM Platform
+            {t("home.tagline")}
           </p>
           <h1 className="text-balance text-3xl font-semibold tracking-tight text-slate-50 sm:text-4xl lg:text-5xl">
-            One additive. Five functions. Zero compromise.
+            {t("home.title")}
           </h1>
           <p className="max-w-xl text-sm leading-relaxed text-slate-300 sm:text-base">
-            EPM replaces 3–5 separate chemical additives with a single
-            multifunctional solution — reducing costs, emissions, and
-            operational complexity for refinery-scale customers.
+            {t("home.description")}
           </p>
           <div className="flex flex-wrap gap-3">
             <a
               href="/calculator"
               className="inline-flex items-center justify-center rounded-full bg-secondary px-6 py-2 text-sm font-semibold text-slate-950 shadow-sm transition hover:bg-secondary/90"
             >
-              Calculate Your Savings
+              {t("home.primaryCta")}
             </a>
             <a
               href="/technology/how-it-works"
               className="inline-flex items-center justify-center rounded-full border border-slate-600 px-6 py-2 text-sm font-semibold text-slate-100 transition hover:border-secondary hover:text-secondary"
             >
-              Learn the Science
+              {t("home.secondaryCta")}
             </a>
           </div>
         </div>

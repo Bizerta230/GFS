@@ -1,5 +1,5 @@
 import type { Metadata } from "next";
-import "./globals.css";
+import "../globals.css";
 import { Header } from "@/components/layout/Header";
 import { Footer } from "@/components/layout/Footer";
 import { ChatWidget } from "@/components/chat/ChatWidget";
@@ -12,7 +12,7 @@ export const metadata: Metadata = {
     "GFS EPM is a full-stack automated business platform for refinery-scale fuel additive optimization.",
 };
 
-export default async function RootLayout({
+export default async function LocaleLayout({
   children,
   params,
 }: Readonly<{
