@@ -1,3 +1,4 @@
+"use client";
 import { usePathname, useRouter } from "next/navigation";
 import { defaultLocale, supportedLocales, type SupportedLocale } from "@/i18n/config";
 
