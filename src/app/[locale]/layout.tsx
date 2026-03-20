@@ -1,5 +1,4 @@
 import type { Metadata } from "next";
-import "../globals.css";
 import { Header } from "@/components/layout/Header";
 import { Footer } from "@/components/layout/Footer";
 import { ChatWidget } from "@/components/chat/ChatWidget";
@@ -22,20 +21,15 @@ export default async function LocaleLayout({
   const { messages, locale } = await getMessages({ locale: params.locale });
 
   return (
-    <html lang={locale}>
-      <body className="min-h-screen bg-background text-foreground antialiased">
-        <NextIntlClientProvider locale={locale} messages={messages}>
-          <div className="flex min-h-screen flex-col bg-slate-950 text-slate-50">
-            <Header />
-            <main className="mx-auto flex w-full max-w-6xl flex-1 flex-col px-4 py-8 md:px-6 md:py-10">
-              {children}
-            </main>
-            <Footer />
-            <ChatWidget />
-          </div>
-        </NextIntlClientProvider>
-      </body>
-    </html>
+    <NextIntlClientProvider locale={locale} messages={messages}>
+      <div className="flex min-h-screen flex-col bg-slate-950 text-slate-50">
+        <Header />
+        <main className="mx-auto flex w-full max-w-6xl flex-1 flex-col px-4 py-8 md:px-6 md:py-10">
+          {children}
+        </main>
+        <Footer />
+        <ChatWidget />
+      </div>
+    </NextIntlClientProvider>
   );
 }
-

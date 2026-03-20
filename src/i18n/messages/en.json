@@ -1,16 +1,20 @@
 {
-  "nav.technology": "Technology",
-  "nav.solutions": "Solutions",
-  "nav.calculator": "Calculator",
-  "nav.resources": "Resources",
-  "nav.about": "About",
-  "nav.contact": "Contact",
-  "cta.requestPilot": "Request Pilot",
-
-  "home.tagline": "GFS EPM Platform",
-  "home.title": "One additive. Five functions. Zero compromise.",
-  "home.description": "EPM replaces 3–5 separate chemical additives with a single multifunctional solution — reducing costs, emissions, and operational complexity for refinery-scale customers.",
-  "home.primaryCta": "Calculate Your Savings",
-  "home.secondaryCta": "Learn the Science"
+  "nav": {
+    "technology": "Technology",
+    "solutions": "Solutions",
+    "calculator": "Calculator",
+    "resources": "Resources",
+    "about": "About",
+    "contact": "Contact"
+  },
+  "cta": {
+    "requestPilot": "Request Pilot"
+  },
+  "home": {
+    "tagline": "GFS EPM Platform",
+    "title": "One additive. Five functions. Zero compromise.",
+    "description": "EPM replaces 3–5 separate chemical additives with a single multifunctional solution — reducing costs, emissions, and operational complexity for refinery-scale customers.",
+    "primaryCta": "Calculate Your Savings",
+    "secondaryCta": "Learn the Science"
+  }
 }
-
