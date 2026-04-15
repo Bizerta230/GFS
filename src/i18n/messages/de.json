@@ -1,0 +1,20 @@
+{
+  "nav": {
+    "technology": "Technologie",
+    "solutions": "Lösungen",
+    "calculator": "Rechner",
+    "resources": "Ressourcen",
+    "about": "Über uns",
+    "contact": "Kontakt"
+  },
+  "cta": {
+    "requestPilot": "Pilotprojekt anfragen"
+  },
+  "home": {
+    "tagline": "GFS EPM Plattform",
+    "title": "Ein Additiv. Fünf Funktionen. Null Kompromisse.",
+    "description": "EPM ersetzt 3–5 separate chemische Additive durch eine einzige multifunktionale Lösung — und reduziert Kosten, Emissionen und operationale Komplexität für Raffinerie-Kunden.",
+    "primaryCta": "Einsparungen berechnen",
+    "secondaryCta": "Die Wissenschaft verstehen"
+  }
+}

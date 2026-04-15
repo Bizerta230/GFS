@@ -1,0 +1,20 @@
+{
+  "nav": {
+    "technology": "技术",
+    "solutions": "解决方案",
+    "calculator": "计算器",
+    "resources": "资源",
+    "about": "关于我们",
+    "contact": "联系我们"
+  },
+  "cta": {
+    "requestPilot": "申请试点"
+  },
+  "home": {
+    "tagline": "GFS EPM 平台",
+    "title": "一种添加剂。五项功能。零妥协。",
+    "description": "EPM 以单一多功能解决方案替代 3–5 种独立化学添加剂——为炼油规模客户降低成本、减少排放、简化运营。",
+    "primaryCta": "计算您的节省",
+    "secondaryCta": "了解科学原理"
+  }
+}
