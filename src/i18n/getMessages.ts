@@ -1,16 +1,12 @@
 import { getRequestConfig } from "next-intl/server";
 import { defaultLocale, supportedLocales, type SupportedLocale } from "./config";
 
-type GetMessagesParams = {
-  locale: string;
-};
-
-export default getRequestConfig(async ({ locale }: GetMessagesParams) => {
-  const normalizedLocale: SupportedLocale = supportedLocales.includes(
-    locale as SupportedLocale,
-  )
-    ? (locale as SupportedLocale)
-    : defaultLocale;
+export default getRequestConfig(async ({ requestLocale }) => {
+  const locale = await requestLocale;
+  const normalizedLocale: SupportedLocale =
+    locale && supportedLocales.includes(locale as SupportedLocale)
+      ? (locale as SupportedLocale)
+      : defaultLocale;
 
   const messages = (await import(`./messages/${normalizedLocale}.json`)).default;
 

@@ -9,11 +9,32 @@ export type LeadPayload = {
 };
 
 export async function createLeadInOdoo(payload: LeadPayload) {
-  // Placeholder: in production this will call Odoo's API (or n8n webhook).
-  // For now we just log the payload server-side.
-  console.log("[Odoo] Lead payload", payload);
+  const webhookUrl = process.env.N8N_WEBHOOK_URL;
 
-  // Simulate created lead id.
+  if (webhookUrl) {
+    try {
+      const res = await fetch(webhookUrl, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          ...payload,
+          timestamp: new Date().toISOString(),
+        }),
+      });
+
+      if (res.ok) {
+        const data = await res.json().catch(() => ({})) as { id?: number };
+        return { id: data.id ?? Math.floor(Math.random() * 1_000_000) };
+      }
+
+      console.warn("[Odoo] Webhook returned non-OK status:", res.status);
+    } catch (err) {
+      console.error("[Odoo] Webhook error:", err);
+    }
+  } else {
+    // Dev mode: just log
+    console.log("[Odoo] Lead payload (set N8N_WEBHOOK_URL to send for real):", payload);
+  }
+
   return { id: Math.floor(Math.random() * 1_000_000) };
 }
-

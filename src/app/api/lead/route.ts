@@ -13,12 +13,7 @@ export async function POST(request: Request) {
     );
   }
 
-  // In a full implementation we would:
-  // - validate fields
-  // - enrich data
-  // - push via n8n to Odoo CRM
   const lead = await createLeadInOdoo(body);
 
   return NextResponse.json({ ok: true, leadId: lead.id });
 }
-

@@ -1,55 +1,79 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
+import { useLocale } from "next-intl";
 
 type Message = {
-  id: number;
+  id: string;
   role: "user" | "assistant";
   content: string;
+  streaming?: boolean;
 };
 
+function getSessionId(): string {
+  if (typeof window === "undefined") return crypto.randomUUID();
+  const key = "gfs_session_id";
+  let id = window.sessionStorage.getItem(key);
+  if (!id) {
+    id = crypto.randomUUID();
+    window.sessionStorage.setItem(key, id);
+  }
+  return id;
+}
+
 export function ChatWidget() {
+  const locale = useLocale();
   const [isOpen, setIsOpen] = useState(false);
   const [messages, setMessages] = useState<Message[]>([]);
   const [input, setInput] = useState("");
   const [isSending, setIsSending] = useState(false);
-  const nextIdRef = useRef(1);
   const containerRef = useRef<HTMLDivElement | null>(null);
 
-  // Restore simple session history
+  // Restore history from sessionStorage
   useEffect(() => {
     if (typeof window === "undefined") return;
     const raw = window.sessionStorage.getItem("gfs_chat_history");
     if (raw) {
       try {
-        const parsed = JSON.parse(raw) as Message[];
-        setMessages(parsed);
-        nextIdRef.current = parsed.length + 1;
+        setMessages(JSON.parse(raw) as Message[]);
       } catch {
         // ignore
       }
     }
   }, []);
 
-  // Persist history
+  // Persist history and auto-scroll
   useEffect(() => {
     if (typeof window === "undefined") return;
-    window.sessionStorage.setItem(
-      "gfs_chat_history",
-      JSON.stringify(messages),
-    );
+    // Don't persist while streaming
+    if (!isSending) {
+      window.sessionStorage.setItem("gfs_chat_history", JSON.stringify(messages));
+    }
     if (containerRef.current) {
       containerRef.current.scrollTop = containerRef.current.scrollHeight;
     }
-  }, [messages]);
+  }, [messages, isSending]);
 
   async function handleSend() {
     const trimmed = input.trim();
     if (!trimmed || isSending) return;
 
-    const id = nextIdRef.current++;
-    const userMessage: Message = { id, role: "user", content: trimmed };
-    setMessages((prev) => [...prev, userMessage]);
+    const sessionId = getSessionId();
+
+    const userMsg: Message = {
+      id: crypto.randomUUID(),
+      role: "user",
+      content: trimmed,
+    };
+    const assistantId = crypto.randomUUID();
+    const assistantMsg: Message = {
+      id: assistantId,
+      role: "assistant",
+      content: "",
+      streaming: true,
+    };
+
+    setMessages((prev) => [...prev, userMsg, assistantMsg]);
     setInput("");
     setIsSending(true);
 
@@ -57,32 +81,74 @@ export function ChatWidget() {
       const res = await fetch("/api/chat", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          message: trimmed,
-          locale: "en", // will be wired to next-intl later
-        }),
+        body: JSON.stringify({ message: trimmed, sessionId, locale }),
       });
 
-      const data = (await res.json()) as { reply?: string; error?: string };
-      const replyText =
-        data.reply ??
-        data.error ??
-        "The chat service is temporarily unavailable. Please try again later.";
+      if (!res.ok || !res.body) {
+        throw new Error(`HTTP ${res.status}`);
+      }
 
-      const assistantMessage: Message = {
-        id: nextIdRef.current++,
-        role: "assistant",
-        content: replyText,
-      };
-      setMessages((prev) => [...prev, assistantMessage]);
+      const reader = res.body.getReader();
+      const decoder = new TextDecoder();
+      let buffer = "";
+
+      while (true) {
+        const { done, value } = await reader.read();
+        if (done) break;
+
+        buffer += decoder.decode(value, { stream: true });
+        const lines = buffer.split("\n");
+        buffer = lines.pop() ?? "";
+
+        for (const line of lines) {
+          if (!line.startsWith("data: ")) continue;
+          try {
+            const payload = JSON.parse(line.slice(6)) as {
+              text?: string;
+              done?: boolean;
+              error?: string;
+            };
+
+            if (payload.error) {
+              setMessages((prev) =>
+                prev.map((m) =>
+                  m.id === assistantId
+                    ? { ...m, content: "Sorry, an error occurred. Please try again.", streaming: false }
+                    : m,
+                ),
+              );
+            } else if (payload.text) {
+              setMessages((prev) =>
+                prev.map((m) =>
+                  m.id === assistantId
+                    ? { ...m, content: m.content + payload.text }
+                    : m,
+                ),
+              );
+            } else if (payload.done) {
+              setMessages((prev) =>
+                prev.map((m) =>
+                  m.id === assistantId ? { ...m, streaming: false } : m,
+                ),
+              );
+            }
+          } catch {
+            // ignore malformed SSE line
+          }
+        }
+      }
     } catch {
-      const assistantMessage: Message = {
-        id: nextIdRef.current++,
-        role: "assistant",
-        content:
-          "We could not reach the AI backend. In production this will be powered by Claude API.",
-      };
-      setMessages((prev) => [...prev, assistantMessage]);
+      setMessages((prev) =>
+        prev.map((m) =>
+          m.id === assistantId
+            ? {
+                ...m,
+                content: "Could not reach the AI backend. Please check your connection.",
+                streaming: false,
+              }
+            : m,
+        ),
+      );
     } finally {
       setIsSending(false);
     }
@@ -117,6 +183,7 @@ export function ChatWidget() {
               Close
             </button>
           </div>
+
           <div
             ref={containerRef}
             className="flex min-h-[220px] max-h-[260px] flex-col gap-2 overflow-y-auto px-3 py-3 text-xs text-slate-100"
@@ -124,16 +191,13 @@ export function ChatWidget() {
             {messages.length === 0 && (
               <p className="text-[11px] text-slate-400">
                 Ask about EPM technology, ROI, pilot programs, or implementation.
-                In production this chat will be powered by the Claude API and
-                connected to the CRM.
+                Powered by Claude AI.
               </p>
             )}
             {messages.map((m) => (
               <div
                 key={m.id}
-                className={`flex ${
-                  m.role === "user" ? "justify-end" : "justify-start"
-                }`}
+                className={`flex ${m.role === "user" ? "justify-end" : "justify-start"}`}
               >
                 <div
                   className={`max-w-[80%] rounded-2xl px-3 py-2 ${
@@ -143,10 +207,14 @@ export function ChatWidget() {
                   }`}
                 >
                   {m.content}
+                  {m.streaming && (
+                    <span className="ml-1 inline-block h-3 w-0.5 animate-pulse bg-slate-400" />
+                  )}
                 </div>
               </div>
             ))}
           </div>
+
           <div className="flex items-center gap-2 border-t border-slate-800 px-3 py-2">
             <input
               value={input}
@@ -166,7 +234,7 @@ export function ChatWidget() {
               disabled={isSending}
               className="rounded-full bg-secondary px-3 py-1.5 text-[11px] font-semibold text-slate-950 shadow-sm transition hover:bg-secondary/90 disabled:cursor-not-allowed disabled:bg-secondary/60"
             >
-              Send
+              {isSending ? "…" : "Send"}
             </button>
           </div>
         </div>
@@ -174,4 +242,3 @@ export function ChatWidget() {
     </>
   );
 }
-

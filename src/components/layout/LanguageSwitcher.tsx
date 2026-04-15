@@ -26,7 +26,7 @@ export function LanguageSwitcher() {
   return (
     <select
       className="rounded-full border border-slate-600 bg-transparent px-2 py-1 text-xs font-medium text-slate-200 hover:border-secondary"
-      onChange={(e) => changeLocale(e.target.value)}
+      onChange={(e) => changeLocale(e.target.value as SupportedLocale)}
       defaultValue={defaultLocale}
     >
       <option value="en">EN</option>
