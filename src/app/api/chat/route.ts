@@ -10,14 +10,33 @@ import { createLeadInOdoo } from "@/lib/api/odoo";
 import { retrieveContext } from "@/lib/rag/retrieve";
 import type { MessageParam } from "@anthropic-ai/sdk/resources/messages";
 
-const anthropic = new Anthropic({
-  apiKey: process.env.ANTHROPIC_API_KEY,
-});
-
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
+function sseStream(chunks: string[]): Response {
+  const encoder = new TextEncoder();
+  const stream = new ReadableStream({
+    start(controller) {
+      for (const chunk of chunks) controller.enqueue(encoder.encode(chunk));
+      controller.close();
+    },
+  });
+  return new Response(stream, {
+    headers: { "Content-Type": "text/event-stream", "Cache-Control": "no-cache" },
+  });
+}
+
 export async function POST(request: Request) {
+  // Graceful fallback when API key is not configured
+  if (!process.env.ANTHROPIC_API_KEY) {
+    return sseStream([
+      `data: ${JSON.stringify({ text: "The AI assistant is not yet configured. Add ANTHROPIC_API_KEY to .env.local to enable it." })}\n\n`,
+      `data: ${JSON.stringify({ done: true, sessionId: "no-key" })}\n\n`,
+    ]);
+  }
+
+  const anthropic = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY });
+
   const body = (await request.json().catch(() => null)) as {
     message?: string;
     sessionId?: string;
@@ -27,9 +46,7 @@ export async function POST(request: Request) {
   const userMessage =
     typeof body?.message === "string" ? body.message.trim() : "";
   const sessionId =
-    typeof body?.sessionId === "string"
-      ? body.sessionId
-      : crypto.randomUUID();
+    typeof body?.sessionId === "string" ? body.sessionId : crypto.randomUUID();
   const locale = typeof body?.locale === "string" ? body.locale : "en";
 
   if (!userMessage) {
@@ -39,22 +56,16 @@ export async function POST(request: Request) {
     });
   }
 
-  // Append user message to conversation history
   const messages = appendMessage(
     sessionId,
     { role: "user", content: userMessage },
     locale,
   );
 
-  // Detect lead signals in the user message
   const detection = detectLeadSignals(userMessage);
 
-  // RAG retrieval — runs in parallel with nothing else, fast enough (~200ms)
   const ragStart = Date.now();
-  const { context: ragContext, chunkCount } = await retrieveContext(
-    userMessage,
-    5,
-  );
+  const { context: ragContext, chunkCount } = await retrieveContext(userMessage, 5);
   const ragMs = Date.now() - ragStart;
 
   const encoder = new TextEncoder();
@@ -67,10 +78,7 @@ export async function POST(request: Request) {
         const anthropicStream = anthropic.messages.stream({
           model: "claude-sonnet-4-5",
           max_tokens: 400,
-          system: buildSystemBlocks(
-            locale,
-            ragContext || undefined,
-          ) as Anthropic.TextBlockParam[],
+          system: buildSystemBlocks(locale, ragContext || undefined) as Anthropic.TextBlockParam[],
           messages: messages as MessageParam[],
         });
 
@@ -82,9 +90,7 @@ export async function POST(request: Request) {
             const chunk = event.delta.text;
             fullAssistantText += chunk;
             controller.enqueue(
-              encoder.encode(
-                `data: ${JSON.stringify({ text: chunk })}\n\n`,
-              ),
+              encoder.encode(`data: ${JSON.stringify({ text: chunk })}\n\n`),
             );
           }
         }
@@ -93,31 +99,17 @@ export async function POST(request: Request) {
         const usage = finalMessage.usage;
         const totalMs = Date.now() - streamStart;
 
-        // Save assistant reply to conversation history
-        appendMessage(
-          sessionId,
-          { role: "assistant", content: fullAssistantText },
-          locale,
-        );
+        appendMessage(sessionId, { role: "assistant", content: fullAssistantText }, locale);
 
-        // Detect signals in assistant reply too (agent may have offered contact)
         const responseDetection = detectLeadSignals(fullAssistantText);
         const allSignals = Array.from(
-          new Set([
-            ...detection.signals,
-            ...responseDetection.signals,
-          ]),
+          new Set([...detection.signals, ...responseDetection.signals]),
         );
 
-        // Update conversation score
         const existing = getConversation(sessionId);
         const newScore = (existing?.leadScore ?? 0) + detection.score;
-        upsertConversation(sessionId, {
-          leadScore: newScore,
-          detectedSignals: allSignals,
-        });
+        upsertConversation(sessionId, { leadScore: newScore, detectedSignals: allSignals });
 
-        // CRM escalation when lead score threshold reached
         if (detection.shouldEscalate) {
           createLeadInOdoo({
             source: "contact",
@@ -129,30 +121,27 @@ export async function POST(request: Request) {
               signals: allSignals,
               ragChunks: chunkCount,
               inputTokens: usage.input_tokens,
-              cachedTokens: usage.cache_read_input_tokens ?? 0,
+              cachedTokens: (usage as Anthropic.Usage & { cache_read_input_tokens?: number }).cache_read_input_tokens ?? 0,
               outputTokens: usage.output_tokens,
               latencyMs: totalMs,
             },
           }).catch(console.error);
         }
 
-        // Persist monitoring event to Supabase if configured
         if (process.env.SUPABASE_URL) {
           const { supabase } = await import("@/lib/rag/supabase-client");
-          void supabase
-            .from("monitoring_events")
-            .insert({
-              event_type: "chat_turn",
-              session_id: sessionId,
-              input_tokens: usage.input_tokens,
-              cached_input_tokens: usage.cache_read_input_tokens ?? 0,
-              output_tokens: usage.output_tokens,
-              rag_chunks_retrieved: chunkCount,
-              rag_retrieval_ms: ragMs,
-              total_latency_ms: totalMs,
-              locale,
-              lead_score: newScore,
-            });
+          void supabase.from("monitoring_events").insert({
+            event_type: "chat_turn",
+            session_id: sessionId,
+            input_tokens: usage.input_tokens,
+            cached_input_tokens: (usage as Anthropic.Usage & { cache_read_input_tokens?: number }).cache_read_input_tokens ?? 0,
+            output_tokens: usage.output_tokens,
+            rag_chunks_retrieved: chunkCount,
+            rag_retrieval_ms: ragMs,
+            total_latency_ms: totalMs,
+            locale,
+            lead_score: newScore,
+          });
         }
 
         controller.enqueue(
@@ -160,7 +149,7 @@ export async function POST(request: Request) {
             `data: ${JSON.stringify({
               done: true,
               sessionId,
-              cached: usage.cache_read_input_tokens ?? 0,
+              cached: (usage as Anthropic.Usage & { cache_read_input_tokens?: number }).cache_read_input_tokens ?? 0,
               inputTokens: usage.input_tokens,
             })}\n\n`,
           ),
@@ -168,9 +157,7 @@ export async function POST(request: Request) {
         controller.close();
       } catch (err) {
         const msg = err instanceof Error ? err.message : "Unknown error";
-        controller.enqueue(
-          encoder.encode(`data: ${JSON.stringify({ error: msg })}\n\n`),
-        );
+        controller.enqueue(encoder.encode(`data: ${JSON.stringify({ error: msg })}\n\n`));
         controller.close();
       }
     },

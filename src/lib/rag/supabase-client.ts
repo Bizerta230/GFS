@@ -1,19 +1,32 @@
-import { createClient } from "@supabase/supabase-js";
+import { createClient, type SupabaseClient } from "@supabase/supabase-js";
 
-const supabaseUrl = process.env.SUPABASE_URL;
-const supabaseServiceKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
+// Lazy singleton — only created when SUPABASE_URL is present.
+// Avoids crashing at module load time when env vars are absent.
+let _client: SupabaseClient | null = null;
 
-if (!supabaseUrl || !supabaseServiceKey) {
-  // Allow the module to load without crashing in dev when env vars are absent.
-  // Actual DB calls will fail gracefully when RAG is invoked.
+export function getSupabase(): SupabaseClient | null {
+  if (!process.env.SUPABASE_URL || !process.env.SUPABASE_SERVICE_ROLE_KEY) {
+    return null;
+  }
+  if (!_client) {
+    _client = createClient(
+      process.env.SUPABASE_URL,
+      process.env.SUPABASE_SERVICE_ROLE_KEY,
+      { auth: { persistSession: false } },
+    );
+  }
+  return _client;
 }
 
-// Singleton — reused across requests in a single Node.js process.
-// NEVER expose this client to the browser bundle (service role key is secret).
-export const supabase = createClient(
-  supabaseUrl ?? "http://localhost:54321",
-  supabaseServiceKey ?? "placeholder",
-  {
-    auth: { persistSession: false },
+// Convenience proxy: returns the client or throws with a clear message
+export const supabase = new Proxy({} as SupabaseClient, {
+  get(_target, prop) {
+    const client = getSupabase();
+    if (!client) {
+      throw new Error(
+        `Supabase is not configured. Set SUPABASE_URL and SUPABASE_SERVICE_ROLE_KEY in .env.local`,
+      );
+    }
+    return (client as unknown as Record<string | symbol, unknown>)[prop];
   },
-);
+});

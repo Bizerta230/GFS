@@ -1,6 +1,6 @@
 import Anthropic from "@anthropic-ai/sdk";
 import { embedText } from "./embeddings";
-import { supabase } from "./supabase-client";
+import { getSupabase } from "./supabase-client";
 
 const anthropic = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY });
 
@@ -54,10 +54,13 @@ export async function retrieveContext(
   }
 
   try {
+    const db = getSupabase();
+    if (!db) return { context: "", chunkCount: 0 };
+
     const hydeAnswer = await hydeExpand(query);
     const embedding = await embedText(hydeAnswer);
 
-    const { data, error } = await supabase.rpc("hybrid_search", {
+    const { data, error } = await db.rpc("hybrid_search", {
       query_embedding: embedding,
       query_text: query,
       match_count: topK,
