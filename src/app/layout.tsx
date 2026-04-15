@@ -1,4 +1,11 @@
 import type { Metadata } from "next";
+import { Inter } from "next/font/google";
+
+const inter = Inter({
+  subsets: ["latin"],
+  variable: "--font-inter",
+  display: "swap",
+});
 
 const siteUrl = process.env.NEXT_PUBLIC_SITE_URL ?? "https://gfs-epm.com";
 
@@ -55,8 +62,8 @@ export default function RootLayout({
   children: React.ReactNode;
 }) {
   return (
-    <html suppressHydrationWarning>
-      <body>{children}</body>
+    <html suppressHydrationWarning className={inter.variable}>
+      <body className="font-sans">{children}</body>
     </html>
   );
 }
